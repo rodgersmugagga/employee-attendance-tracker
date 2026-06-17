@@ -13,8 +13,8 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 const OFFICE_LOCATION = {
-  lat: Number.parseFloat(process.env.OFFICE_LAT || '-1.286389'),
-  lng: Number.parseFloat(process.env.OFFICE_LNG || '36.817223')
+  lat: Number.parseFloat(process.env.OFFICE_LAT || '-0.5935307533555609, '),
+  lng: Number.parseFloat(process.env.OFFICE_LNG || '30.611884814347622')
 };
 const OFFICE_RADIUS_METERS = Number.parseInt(process.env.OFFICE_RADIUS_METERS || '100', 10);
 const MAX_TRUSTED_ACCURACY_METERS = Number.parseInt(process.env.MAX_TRUSTED_ACCURACY_METERS || '150', 10);

@@ -13,6 +13,10 @@ services:
           property: connectionString
       - key: PORT
         value: 10000
+      - key: OFFICE_LAT
+        value: -0.5935307533555609
+      - key: OFFICE_LNG
+        value: 30.611884814347622
 
 databases:
   - name: blue-ox-db
