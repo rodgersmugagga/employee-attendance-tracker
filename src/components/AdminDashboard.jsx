@@ -1,54 +1,77 @@
-import React, { useState, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { getAllLogs, deleteLog, registerEmployee, exportLogs, getMemos, createMemo } from '../utils/storage';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+const AdminCharts = lazy(() => import('./AdminCharts'));
+
+const emptyEmployee = { name: '', email: '', password: '', role: 'employee' };
 
 const AdminDashboard = ({ user, onLogout }) => {
   const [logs, setLogs] = useState([]);
-  const [stats, setStats] = useState({ total: 0, late: 0, onTime: 0 });
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({ name: '', email: '', password: '', role: 'employee' });
+  const [newEmployee, setNewEmployee] = useState(emptyEmployee);
   const [addError, setAddError] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [memos, setMemos] = useState([]);
   const [newMemo, setNewMemo] = useState('');
   const [memoLoading, setMemoLoading] = useState(false);
 
-  useEffect(() => {
-    fetchLogs();
+  const stats = useMemo(() => {
+    const late = logs.filter((log) => log.status === 'Late').length;
+    const onTime = logs.filter((log) => log.status === 'On Time').length;
+    return { total: logs.length, late, onTime };
+  }, [logs]);
+
+  const loadAdminData = useCallback(() => Promise.all([
+    getAllLogs(),
+    getMemos(),
+  ]), []);
+
+  const applyAdminData = useCallback((allLogs, allMemos) => {
+    setLogs(allLogs);
+    setMemos(allMemos);
   }, []);
 
-  const fetchLogs = async () => {
+  const refreshAdmin = useCallback(async () => {
     setLoading(true);
     try {
-      const allLogs = await getAllLogs();
-      const allMemos = await getMemos();
-      setLogs(allLogs);
-      setMemos(allMemos);
-
-      const late = allLogs.filter(l => l.status === 'Late').length;
-      const onTime = allLogs.filter(l => l.status === 'On Time').length;
-      setStats({ total: allLogs.length, late, onTime });
+      const [allLogs, allMemos] = await loadAdminData();
+      applyAdminData(allLogs, allMemos);
     } catch (err) {
       console.error('Failed to fetch logs', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyAdminData, loadAdminData]);
 
-  const handleExport = () => {
-    exportLogs();
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const handleAddEmployee = async (e) => {
-    e.preventDefault();
+    const loadInitialData = async () => {
+      try {
+        const [allLogs, allMemos] = await loadAdminData();
+        if (!cancelled) applyAdminData(allLogs, allMemos);
+      } catch (err) {
+        console.error('Failed to fetch logs', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadInitialData();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyAdminData, loadAdminData]);
+
+  const handleAddEmployee = async (event) => {
+    event.preventDefault();
     setAddLoading(true);
     setAddError('');
     try {
       await registerEmployee(newEmployee);
-      setNewEmployee({ name: '', email: '', password: '', role: 'employee' });
+      setNewEmployee(emptyEmployee);
       setShowAddForm(false);
-      alert('Employee added successfully!');
     } catch (err) {
       setAddError(err.message);
     } finally {
@@ -59,244 +82,211 @@ const AdminDashboard = ({ user, onLogout }) => {
   const handleDeleteLog = async (id) => {
     try {
       await deleteLog(id);
-      fetchLogs();
+      await refreshAdmin();
     } catch (err) {
       console.error('Failed to delete log', err);
     }
   };
 
-  if (loading) return <div className="container">Loading...</div>;
+  const handleCreateMemo = async (event) => {
+    event.preventDefault();
+    const content = newMemo.trim();
+    if (!content) return;
+
+    setMemoLoading(true);
+    try {
+      await createMemo({ content, author: user.name });
+      setNewMemo('');
+      setMemos(await getMemos());
+    } catch (err) {
+      console.error('Failed to create memo', err);
+    } finally {
+      setMemoLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="container page-shell">
+        <div className="loading-card">Loading administration...</div>
+      </main>
+    );
+  }
 
   return (
-    <div className="container animate-fade-in">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)' }}>Manager Dashboard</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Blue Ox Kampus Administration</p>
+    <main className="container page-shell animate-fade-in">
+      <header className="page-header">
+        <div className="page-heading">
+          <h2 className="page-title">Manager Dashboard</h2>
+          <p>Blue Ox Kampus Administration</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-start', flexWrap: 'wrap', flex: 1, minWidth: '280px' }}>
+        <div className="header-actions">
           <button
-            onClick={handleExport}
-            className="btn-primary"
-            style={{ background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+            onClick={exportLogs}
+            className="btn-primary outline"
+            type="button"
           >
             Export Logs
           </button>
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => setShowAddForm((value) => !value)}
             className="btn-primary"
-            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+            type="button"
           >
             {showAddForm ? 'Cancel' : 'Add Employee'}
           </button>
-          <button onClick={onLogout} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>Logout</button>
+          <button onClick={onLogout} className="btn-ghost" type="button">Logout</button>
         </div>
       </header>
 
       {showAddForm && (
-        <div className="glass-card animate-fade-in" style={{ marginBottom: '2.5rem', border: '1px solid var(--primary)' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>Register New Employee</h3>
-          <form onSubmit={handleAddEmployee} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Full Name</label>
+        <section className="glass-card form-panel animate-fade-in">
+          <h3>Register New Employee</h3>
+          <form onSubmit={handleAddEmployee} className="form-grid">
+            <div className="form-field">
+              <label>Full Name</label>
               <input
                 type="text"
                 className="input-field"
                 value={newEmployee.name}
-                onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
+                onChange={(event) => setNewEmployee({ ...newEmployee, name: event.target.value })}
                 required
               />
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Email</label>
+            <div className="form-field">
+              <label>Email</label>
               <input
                 type="email"
                 className="input-field"
                 value={newEmployee.email}
-                onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                onChange={(event) => setNewEmployee({ ...newEmployee, email: event.target.value })}
                 required
               />
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Password</label>
+            <div className="form-field">
+              <label>Password</label>
               <input
                 type="password"
                 className="input-field"
                 value={newEmployee.password}
-                onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                onChange={(event) => setNewEmployee({ ...newEmployee, password: event.target.value })}
                 required
               />
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button type="submit" className="btn-primary" style={{ width: '100%', height: '42px' }} disabled={addLoading}>
-                {addLoading ? 'Adding...' : 'Register User'}
-              </button>
-            </div>
+            <button type="submit" className="btn-primary form-submit" disabled={addLoading}>
+              {addLoading ? 'Adding...' : 'Register User'}
+            </button>
           </form>
-          {addError && <p style={{ color: '#ff4444', marginTop: '1rem', fontSize: '0.85rem' }}>{addError}</p>}
-        </div>
+          {addError && <p className="form-error">{addError}</p>}
+        </section>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'clamp(0.5rem, 2vw, 1.5rem)', marginBottom: '2.5rem' }}>
-        <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Total Logs</p>
-          <h3 style={{ fontSize: '2rem', color: 'var(--primary)' }}>{stats.total}</h3>
-        </div>
-        <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>On Time</p>
-          <h3 style={{ fontSize: '2rem', color: '#44ff44' }}>{stats.onTime}</h3>
-        </div>
-        <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Late Arrivals</p>
-          <h3 style={{ fontSize: '2rem', color: '#ff4444' }}>{stats.late}</h3>
-        </div>
-      </div>
+      <section className="stats-grid">
+        <article className="glass-card stat-card">
+          <p>Total Logs</p>
+          <strong>{stats.total}</strong>
+        </article>
+        <article className="glass-card stat-card">
+          <p>On Time</p>
+          <strong className="text-success">{stats.onTime}</strong>
+        </article>
+        <article className="glass-card stat-card">
+          <p>Late Arrivals</p>
+          <strong className="text-danger">{stats.late}</strong>
+        </article>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-        <div className="glass-card" style={{ height: '400px' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>Attendance Trends</h3>
-          <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={logs.length > 0 ? logs.slice(0, 7).reverse().map(l => ({ name: l.date || 'N/A', status: l.status === 'On Time' ? 1 : 0 })) : []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
-              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
-              <YAxis hide />
-              <Tooltip
-                contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--glass-border)', color: 'white' }}
-                itemStyle={{ color: 'var(--primary)' }}
-              />
-              <Line type="monotone" dataKey="status" stroke="var(--primary)" strokeWidth={2} dot={{ fill: 'var(--primary)' }} />
-            </LineChart>
-          </ResponsiveContainer>
+      <Suspense fallback={
+        <div className="chart-grid">
+          <section className="glass-card chart-card chart-loading">Loading chart...</section>
+          <section className="glass-card chart-card chart-loading">Loading chart...</section>
         </div>
+      }>
+        <AdminCharts logs={logs} stats={stats} />
+      </Suspense>
 
-        <div className="glass-card" style={{ height: '400px' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>Status Distribution</h3>
-          <ResponsiveContainer width="100%" height="85%">
-            <PieChart>
-              <Pie
-                data={[
-                  { name: 'On Time', value: stats.onTime },
-                  { name: 'Late', value: stats.late }
-                ]}
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                <Cell fill="#44ff44" />
-                <Cell fill="#ff4444" />
-              </Pie>
-              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--glass-border)', color: 'white' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-        <div className="glass-card">
-          <h3 style={{ marginBottom: '1.5rem' }}>Post New Announcement</h3>
-          <form onSubmit={async (e) => {
-            e.preventDefault();
-            if (!newMemo) return;
-            setMemoLoading(true);
-            try {
-              await createMemo({ content: newMemo, author: user.name });
-              setNewMemo('');
-              const updated = await getMemos();
-              setMemos(updated);
-            } catch (err) {
-              console.error(err);
-            } finally {
-              setMemoLoading(false);
-            }
-          }}>
+      <div className="admin-work-grid">
+        <section className="glass-card">
+          <h3>Post New Announcement</h3>
+          <form onSubmit={handleCreateMemo} className="memo-form">
             <textarea
               className="input-field"
               placeholder="Type company announcement here..."
               value={newMemo}
-              onChange={(e) => setNewMemo(e.target.value)}
-              style={{ minHeight: '100px', marginBottom: '1rem', resize: 'vertical' }}
+              onChange={(event) => setNewMemo(event.target.value)}
             />
-            <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={memoLoading}>
-              Post Memo
+            <button type="submit" className="btn-primary full-width" disabled={memoLoading}>
+              {memoLoading ? 'Posting...' : 'Post Memo'}
             </button>
           </form>
-        </div>
+        </section>
 
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ marginBottom: '1.5rem' }}>Active Notices</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
-            {memos.map(memo => (
-              <div key={memo.id} className="memo-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                <p style={{ fontSize: '0.9rem', flex: 1 }}>{memo.content}</p>
-                {/* Delete button logic here */}
-              </div>
+        <section className="glass-card notice-panel">
+          <h3>Active Notices</h3>
+          <div className="memo-list">
+            {memos.map((memo) => (
+              <article key={memo.id} className="memo-card">
+                <p>{memo.content}</p>
+                <small>{memo.author}</small>
+              </article>
             ))}
-            {memos.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No active notices</p>}
+            {memos.length === 0 && <p className="empty-state">No active notices</p>}
           </div>
-        </div>
+        </section>
       </div>
 
-      <div className="glass-card">
-        <h3 style={{ marginBottom: '1.5rem' }}>Employee Attendance Records</h3>
+      <section className="glass-card table-card">
+        <h3>Employee Attendance Records</h3>
         <div className="table-wrap">
-          <table>
+          <table className="responsive-table admin-records-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--glass-border)', textAlign: 'left' }}>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Entry</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Exit</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Employee</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Date</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>In</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Out</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Status</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Action</th>
+              <tr>
+                <th>Entry</th>
+                <th>Exit</th>
+                <th>Employee</th>
+                <th>Date</th>
+                <th>In</th>
+                <th>Out</th>
+                <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {logs.map(log => (
-                <tr key={log.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                  <td style={{ padding: '1rem' }}>
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td data-label="Entry">
                     {log.photo ? (
-                      <img src={log.photo} loading="lazy" alt="In" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--primary)' }} />
+                      <img src={log.photo} loading="lazy" alt="Punch in" className="log-photo in" />
                     ) : (
-                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'hsla(0,0%,100%,0.05)' }}></div>
+                      <span className="photo-placeholder" />
                     )}
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td data-label="Exit">
                     {log.outPhoto ? (
-                      <img src={log.outPhoto} loading="lazy" alt="Out" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #ff4444' }} />
+                      <img src={log.outPhoto} loading="lazy" alt="Punch out" className="log-photo out" />
                     ) : (
-                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'hsla(0,0%,100%,0.05)' }}></div>
+                      <span className="photo-placeholder" />
                     )}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: '500' }}>{log.userName}</td>
-                  <td style={{ padding: '1rem' }}>{log.date}</td>
-                  <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
-                    {log.timeIn}
-                    <br />
-                    <span style={{ color: log.isOutOfBounds ? '#ff4444' : '#44ff44', fontSize: '0.7rem' }}>
-                      {log.isOutOfBounds ? '🚩 Remote' : '📍 On-Site'}
-                    </span>
+                  <td data-label="Employee" className="strong-cell">{log.userName}</td>
+                  <td data-label="Date">{log.date}</td>
+                  <td data-label="In">
+                    <span>{log.timeIn}</span>
+                    <small className={log.isOutOfBounds ? 'text-danger' : 'text-success'}>
+                      {log.isOutOfBounds ? 'Remote' : 'On-site'}
+                    </small>
                   </td>
-                  <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
-                    {log.timeOut || '-'}
-                  </td>
-                  <td style={{ padding: '1rem' }}>
-                    <span style={{
-                      color: log.status === 'Late' ? '#ff4444' : '#44ff44',
-                      background: log.status === 'Late' ? 'rgba(255, 68, 68, 0.1)' : 'rgba(68, 255, 68, 0.1)',
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '4px',
-                      fontSize: '0.8rem'
-                    }}>
+                  <td data-label="Out">{log.timeOut || '-'}</td>
+                  <td data-label="Status">
+                    <span className={`status-tag ${log.status === 'Late' ? 'late' : 'on-time'}`}>
                       {log.status}
                     </span>
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td data-label="Action">
                     <button
                       onClick={() => handleDeleteLog(log.id)}
-                      style={{ background: 'transparent', border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: '0.8rem' }}
+                      className="text-button danger-text"
+                      type="button"
                     >
                       Delete
                     </button>
@@ -305,14 +295,14 @@ const AdminDashboard = ({ user, onLogout }) => {
               ))}
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No records yet</td>
+                  <td colSpan="8" className="empty-state">No records yet</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 

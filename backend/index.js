@@ -11,12 +11,34 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
+const parseLimit = (value, fallback, max) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, max);
+};
+
+const listLogSelect = {
+  id: true,
+  userId: true,
+  userName: true,
+  date: true,
+  timeIn: true,
+  timeOut: true,
+  status: true,
+  isOutOfBounds: true,
+  createdAt: true
+};
+
+const getAdminLogSelect = (includePhotos) => includePhotos
+  ? { ...listLogSelect, photo: true, outPhoto: true }
+  : listLogSelect;
+
 // Security headers
 app.use(helmet());
 
 // CORS and JSON parsing
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // Compress responses to reduce bytes over mobile networks
 app.use(compression());
@@ -25,12 +47,12 @@ app.use(compression());
 const distPath = path.join(__dirname, '../dist');
 // Set cache control for common static assets to leverage client-side caching
 app.use((req, res, next) => {
-  if (req.path.startsWith('/assets') || req.path.match(/\.(js|css|png|jpg|jpeg|svg|webp)$/)) {
+  if (req.path.startsWith('/assets') || req.path.startsWith('/models') || req.path.match(/\.(js|css|png|jpg|jpeg|svg|webp|json)$/)) {
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
   }
   next();
 });
-app.use(express.static(distPath, { maxAge: '1y' }));
+app.use(express.static(distPath, { maxAge: 0 }));
 
 // Auth Routes (Simplified for initial version)
 app.post('/api/login', async (req, res) => {
@@ -38,7 +60,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (user && user.password === password) { // In production, use bcrypt
-      res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
+      res.json({ id: user.id, name: user.name, email: user.email, role: user.role, faceDescriptor: user.faceDescriptor });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -66,9 +88,12 @@ app.post('/api/admin/users', async (req, res) => {
 // Attendance Routes
 app.get('/api/logs/:userId', async (req, res) => {
   try {
+    const limit = parseLimit(req.query.limit, 30, 100);
     const logs = await prisma.log.findMany({
       where: { userId: req.params.userId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: listLogSelect
     });
     res.json(logs);
   } catch (err) {
@@ -78,8 +103,12 @@ app.get('/api/logs/:userId', async (req, res) => {
 
 app.get('/api/admin/logs', async (req, res) => {
   try {
+    const limit = parseLimit(req.query.limit, 100, 500);
+    const includePhotos = req.query.includePhotos === '1';
     const logs = await prisma.log.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: getAdminLogSelect(includePhotos)
     });
     res.json(logs);
   } catch (err) {
@@ -115,7 +144,14 @@ app.post('/api/punch-out', async (req, res) => {
 app.get('/api/admin/export', async (req, res) => {
   try {
     const logs = await prisma.log.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      select: {
+        userName: true,
+        date: true,
+        timeIn: true,
+        timeOut: true,
+        status: true
+      }
     });
 
     const fields = ['userName', 'date', 'timeIn', 'timeOut', 'status'];
@@ -188,6 +224,7 @@ app.post('/api/users/:userId/face', async (req, res) => {
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get('*path', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

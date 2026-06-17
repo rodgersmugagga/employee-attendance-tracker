@@ -1,36 +1,42 @@
 const API_BASE_URL = import.meta.env.MODE === 'production' ? '/api' : 'http://localhost:5000/api';
 
-export const loginUser = async (email, password) => {
-  const response = await fetch(`${API_BASE_URL}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-  if (!response.ok) throw new Error('Invalid credentials');
-  return response.json();
-};
-
-export const registerEmployee = async (userData) => {
-  const response = await fetch(`${API_BASE_URL}/admin/users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
-  });
+const fetchJson = async (url, options) => {
+  const response = await fetch(url, options);
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Failed to register employee');
+    let message = 'Request failed';
+    try {
+      const errorData = await response.json();
+      message = errorData.error || message;
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
   }
   return response.json();
 };
 
-export const getLogs = async (userId) => {
-  const response = await fetch(`${API_BASE_URL}/logs/${userId}`);
-  return response.json();
+export const loginUser = async (email, password) => {
+  return fetchJson(`${API_BASE_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
 };
 
-export const getAllLogs = async () => {
-  const response = await fetch(`${API_BASE_URL}/admin/logs`);
-  return response.json();
+export const registerEmployee = async (userData) => {
+  return fetchJson(`${API_BASE_URL}/admin/users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData)
+  });
+};
+
+export const getLogs = async (userId, limit = 30) => {
+  return fetchJson(`${API_BASE_URL}/logs/${userId}?limit=${limit}`);
+};
+
+export const getAllLogs = async (limit = 100) => {
+  return fetchJson(`${API_BASE_URL}/admin/logs?limit=${limit}&includePhotos=1`);
 };
 
 export const exportLogs = () => {
@@ -38,28 +44,25 @@ export const exportLogs = () => {
 };
 
 export const punchIn = async (data) => {
-  const response = await fetch(`${API_BASE_URL}/punch-in`, {
+  return fetchJson(`${API_BASE_URL}/punch-in`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  return response.json();
 };
 
 export const punchOut = async (data) => {
-  const response = await fetch(`${API_BASE_URL}/punch-out`, {
+  return fetchJson(`${API_BASE_URL}/punch-out`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   });
-  return response.json();
 };
 
 export const deleteLog = async (id) => {
-  const response = await fetch(`${API_BASE_URL}/logs/${id}`, {
+  return fetchJson(`${API_BASE_URL}/logs/${id}`, {
     method: 'DELETE'
   });
-  return response.json();
 };
 
 export const STORAGE_KEYS = {
@@ -80,23 +83,20 @@ export const clearStoredUser = () => {
 };
 
 export const getMemos = async () => {
-  const response = await fetch(`${API_BASE_URL}/memos`);
-  return response.json();
+  return fetchJson(`${API_BASE_URL}/memos`);
 };
 
 export const createMemo = async (memoData) => {
-  const response = await fetch(`${API_BASE_URL}/memos`, {
+  return fetchJson(`${API_BASE_URL}/memos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(memoData)
   });
-  return response.json();
 };
 export const updateFaceDescriptor = async (userId, descriptor) => {
-  const response = await fetch(`${API_BASE_URL}/users/${userId}/face`, {
+  return fetchJson(`${API_BASE_URL}/users/${userId}/face`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ faceDescriptor: JSON.stringify(Array.from(descriptor)) })
   });
-  return response.json();
 };

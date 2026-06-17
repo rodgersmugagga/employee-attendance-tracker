@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { loginUser, setStoredUser } from '../utils/storage';
 
 const Login = ({ onLoginSuccess }) => {
@@ -15,7 +15,7 @@ const Login = ({ onLoginSuccess }) => {
       const user = await loginUser(email, password);
       setStoredUser(user);
       onLoginSuccess(user);
-    } catch (err) {
+    } catch {
       setError('Invalid email or password');
     } finally {
       setLoading(false);
@@ -23,14 +23,14 @@ const Login = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-      <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '1rem', fontSize: 'clamp(2rem, 10vw, 2.5rem)' }}>Blue Ox</h1>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem' }}>Kampus Portal</p>
+    <main className="auth-shell">
+      <section className="glass-card auth-card animate-fade-in">
+        <h1 className="auth-title">Blue Ox</h1>
+        <p className="auth-subtitle">Kampus Portal</p>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Email Address</label>
+        <form onSubmit={handleLogin} className="stack-form">
+          <div className="form-field">
+            <label>Email Address</label>
             <input
               type="email"
               className="input-field"
@@ -40,8 +40,8 @@ const Login = ({ onLoginSuccess }) => {
               required
             />
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Password</label>
+          <div className="form-field">
+            <label>Password</label>
             <input
               type="password"
               className="input-field"
@@ -52,14 +52,14 @@ const Login = ({ onLoginSuccess }) => {
             />
           </div>
 
-          {error && <p style={{ color: '#ff4444', fontSize: '0.85rem', textAlign: 'center' }}>{error}</p>}
+          {error && <p className="form-error centered">{error}</p>}
 
-          <button type="submit" className="btn-primary" style={{ marginTop: '1rem' }} disabled={loading}>
+          <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 
