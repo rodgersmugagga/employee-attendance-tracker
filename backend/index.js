@@ -10,6 +10,12 @@ require('dotenv').config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
+const OFFICE_LOCATION = {
+  lat: Number.parseFloat(process.env.OFFICE_LAT || '-1.286389'),
+  lng: Number.parseFloat(process.env.OFFICE_LNG || '36.817223')
+};
+const OFFICE_RADIUS_METERS = Number.parseInt(process.env.OFFICE_RADIUS_METERS || '100', 10);
+const MAX_TRUSTED_ACCURACY_METERS = Number.parseInt(process.env.MAX_TRUSTED_ACCURACY_METERS || '150', 10);
 
 const parseLimit = (value, fallback, max) => {
   const parsed = Number.parseInt(value, 10);
@@ -25,6 +31,18 @@ const listLogSelect = {
   timeIn: true,
   timeOut: true,
   status: true,
+  lat: true,
+  lng: true,
+  locationAccuracy: true,
+  distanceFromOffice: true,
+  locationStatus: true,
+  locationCheckedAt: true,
+  outLat: true,
+  outLng: true,
+  outLocationAccuracy: true,
+  outDistanceFromOffice: true,
+  outLocationStatus: true,
+  outLocationCheckedAt: true,
   isOutOfBounds: true,
   createdAt: true
 };
@@ -32,6 +50,87 @@ const listLogSelect = {
 const getAdminLogSelect = (includePhotos) => includePhotos
   ? { ...listLogSelect, photo: true, outPhoto: true }
   : listLogSelect;
+
+const adminUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  faceDescriptor: true,
+  createdAt: true,
+  _count: {
+    select: { logs: true }
+  }
+};
+
+const toAdminUser = (user) => ({
+  ...user,
+  faceEnrolled: Boolean(user.faceDescriptor),
+  faceDescriptor: undefined
+});
+
+const toNullableNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const calculateDistanceMeters = (lat1, lon1, lat2, lon2) => {
+  const radius = 6371e3;
+  const lat1Rad = lat1 * Math.PI / 180;
+  const lat2Rad = lat2 * Math.PI / 180;
+  const deltaLat = (lat2 - lat1) * Math.PI / 180;
+  const deltaLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+    Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(radius * c);
+};
+
+const assessLocation = ({ lat, lng, accuracy }) => {
+  const latitude = toNullableNumber(lat);
+  const longitude = toNullableNumber(lng);
+  const locationAccuracy = toNullableNumber(accuracy);
+  const checkedAt = new Date();
+
+  if (latitude === null || longitude === null) {
+    return {
+      lat: latitude,
+      lng: longitude,
+      accuracy: locationAccuracy,
+      distanceFromOffice: null,
+      status: 'unknown',
+      checkedAt,
+      isOutOfBounds: true
+    };
+  }
+
+  const distanceFromOffice = calculateDistanceMeters(latitude, longitude, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
+  const hasPoorAccuracy = locationAccuracy === null || locationAccuracy > MAX_TRUSTED_ACCURACY_METERS;
+
+  if (hasPoorAccuracy) {
+    return {
+      lat: latitude,
+      lng: longitude,
+      accuracy: locationAccuracy,
+      distanceFromOffice,
+      status: 'low_accuracy',
+      checkedAt,
+      isOutOfBounds: true
+    };
+  }
+
+  const isOutOfBounds = distanceFromOffice > OFFICE_RADIUS_METERS;
+  return {
+    lat: latitude,
+    lng: longitude,
+    accuracy: locationAccuracy,
+    distanceFromOffice,
+    status: isOutOfBounds ? 'remote' : 'onsite',
+    checkedAt,
+    isOutOfBounds
+  };
+};
 
 // Security headers
 app.use(helmet());
@@ -72,14 +171,93 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/admin/users', async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
+    if (!name?.trim() || !email?.trim() || !password?.trim()) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
     const newUser = await prisma.user.create({
-      data: { name, email, password, role: role || 'employee' }
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role: role || 'employee'
+      },
+      select: adminUserSelect
     });
-    res.json(newUser);
+    res.json(toAdminUser(newUser));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: adminUserSelect
+    });
+    res.json(users.map(toAdminUser));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/users/:id', async (req, res) => {
+  const { name, email, password, role } = req.body;
+  try {
+    if (!name?.trim() || !email?.trim()) {
+      return res.status(400).json({ error: 'Name and email are required' });
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: email.trim().toLowerCase(),
+        NOT: { id: req.params.id }
+      }
+    });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Another user already has this email' });
+    }
+
+    const data = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      role: role || 'employee'
+    };
+    if (password?.trim()) data.password = password;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.params.id },
+      data,
+      select: adminUserSelect
+    });
+    res.json(toAdminUser(updatedUser));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const adminCount = await prisma.user.count({ where: { role: 'admin' } });
+    const userToDelete = await prisma.user.findUnique({ where: { id: req.params.id } });
+
+    if (!userToDelete) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    if (userToDelete.role === 'admin' && adminCount <= 1) {
+      return res.status(400).json({ error: 'At least one admin account is required' });
+    }
+
+    await prisma.$transaction([
+      prisma.log.deleteMany({ where: { userId: req.params.id } }),
+      prisma.user.delete({ where: { id: req.params.id } })
+    ]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -117,10 +295,25 @@ app.get('/api/admin/logs', async (req, res) => {
 });
 
 app.post('/api/punch-in', async (req, res) => {
-  const { userId, userName, date, timeIn, status, lat, lng, photo, isOutOfBounds } = req.body;
+  const { userId, userName, date, timeIn, status, lat, lng, accuracy, photo } = req.body;
+  const location = assessLocation({ lat, lng, accuracy });
   try {
     const newLog = await prisma.log.create({
-      data: { userId, userName, date, timeIn, status, lat, lng, photo, isOutOfBounds: !!isOutOfBounds }
+      data: {
+        userId,
+        userName,
+        date,
+        timeIn,
+        status,
+        lat: location.lat,
+        lng: location.lng,
+        locationAccuracy: location.accuracy,
+        distanceFromOffice: location.distanceFromOffice,
+        locationStatus: location.status,
+        locationCheckedAt: location.checkedAt,
+        photo,
+        isOutOfBounds: location.isOutOfBounds
+      }
     });
     res.json(newLog);
   } catch (err) {
@@ -129,11 +322,21 @@ app.post('/api/punch-in', async (req, res) => {
 });
 
 app.post('/api/punch-out', async (req, res) => {
-  const { logId, timeOut, outLat, outLng, outPhoto } = req.body;
+  const { logId, timeOut, outLat, outLng, outAccuracy, outPhoto } = req.body;
+  const location = assessLocation({ lat: outLat, lng: outLng, accuracy: outAccuracy });
   try {
     const updatedLog = await prisma.log.update({
       where: { id: logId },
-      data: { timeOut, outLat, outLng, outPhoto }
+      data: {
+        timeOut,
+        outLat: location.lat,
+        outLng: location.lng,
+        outLocationAccuracy: location.accuracy,
+        outDistanceFromOffice: location.distanceFromOffice,
+        outLocationStatus: location.status,
+        outLocationCheckedAt: location.checkedAt,
+        outPhoto
+      }
     });
     res.json(updatedLog);
   } catch (err) {
@@ -150,11 +353,29 @@ app.get('/api/admin/export', async (req, res) => {
         date: true,
         timeIn: true,
         timeOut: true,
-        status: true
+        status: true,
+        locationStatus: true,
+        distanceFromOffice: true,
+        locationAccuracy: true,
+        outLocationStatus: true,
+        outDistanceFromOffice: true,
+        outLocationAccuracy: true
       }
     });
 
-    const fields = ['userName', 'date', 'timeIn', 'timeOut', 'status'];
+    const fields = [
+      'userName',
+      'date',
+      'timeIn',
+      'timeOut',
+      'status',
+      'locationStatus',
+      'distanceFromOffice',
+      'locationAccuracy',
+      'outLocationStatus',
+      'outDistanceFromOffice',
+      'outLocationAccuracy'
+    ];
     const json2csvParser = new Parser({ fields });
     const csv = json2csvParser.parse(logs);
 
@@ -190,10 +411,31 @@ app.get('/api/memos', async (req, res) => {
 app.post('/api/memos', async (req, res) => {
   const { content, author } = req.body;
   try {
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Announcement content is required' });
+    }
+
     const newMemo = await prisma.memo.create({
-      data: { content, author }
+      data: { content: content.trim(), author }
     });
     res.json(newMemo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/memos/:id', async (req, res) => {
+  const { content } = req.body;
+  try {
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Announcement content is required' });
+    }
+
+    const updatedMemo = await prisma.memo.update({
+      where: { id: req.params.id },
+      data: { content: content.trim() }
+    });
+    res.json(updatedMemo);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

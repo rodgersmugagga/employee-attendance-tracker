@@ -32,8 +32,16 @@ model Log {
   status    String   // On Time or Late
   lat           Float?
   lng           Float?
+  locationAccuracy Float?
+  distanceFromOffice Float?
+  locationStatus String @default("unknown")
+  locationCheckedAt DateTime?
   outLat        Float?
   outLng        Float?
+  outLocationAccuracy Float?
+  outDistanceFromOffice Float?
+  outLocationStatus String?
+  outLocationCheckedAt DateTime?
   photo         String?  // Punch-in photo
   outPhoto      String?  // Punch-out photo
   isOutOfBounds Boolean  @default(false)

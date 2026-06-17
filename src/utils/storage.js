@@ -31,12 +31,34 @@ export const registerEmployee = async (userData) => {
   });
 };
 
+export const getEmployees = async () => {
+  return fetchJson(`${API_BASE_URL}/admin/users`);
+};
+
+export const updateEmployee = async (id, userData) => {
+  return fetchJson(`${API_BASE_URL}/admin/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData)
+  });
+};
+
+export const deleteEmployee = async (id) => {
+  return fetchJson(`${API_BASE_URL}/admin/users/${id}`, {
+    method: 'DELETE'
+  });
+};
+
 export const getLogs = async (userId, limit = 30) => {
   return fetchJson(`${API_BASE_URL}/logs/${userId}?limit=${limit}`);
 };
 
-export const getAllLogs = async (limit = 100) => {
-  return fetchJson(`${API_BASE_URL}/admin/logs?limit=${limit}&includePhotos=1`);
+export const getAllLogs = async ({ limit = 100, includePhotos = false } = {}) => {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    includePhotos: includePhotos ? '1' : '0'
+  });
+  return fetchJson(`${API_BASE_URL}/admin/logs?${params.toString()}`);
 };
 
 export const exportLogs = () => {
@@ -93,6 +115,21 @@ export const createMemo = async (memoData) => {
     body: JSON.stringify(memoData)
   });
 };
+
+export const updateMemo = async (id, memoData) => {
+  return fetchJson(`${API_BASE_URL}/memos/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(memoData)
+  });
+};
+
+export const deleteMemo = async (id) => {
+  return fetchJson(`${API_BASE_URL}/memos/${id}`, {
+    method: 'DELETE'
+  });
+};
+
 export const updateFaceDescriptor = async (userId, descriptor) => {
   return fetchJson(`${API_BASE_URL}/users/${userId}/face`, {
     method: 'POST',

@@ -3,7 +3,6 @@ import { getLogs, punchIn, punchOut, getMemos, updateFaceDescriptor, setStoredUs
 
 const FaceVerificationModal = lazy(() => import('./FaceVerificationModal'));
 
-const BLUE_OX_OFFICE = { lat: -1.286389, lng: 36.817223 };
 const MODEL_URL = '/models';
 
 const getCoords = () => new Promise((resolve, reject) => {
@@ -13,19 +12,6 @@ const getCoords = () => new Promise((resolve, reject) => {
     enableHighAccuracy: true,
   });
 });
-
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const radius = 6371e3;
-  const lat1Rad = lat1 * Math.PI / 180;
-  const lat2Rad = lat2 * Math.PI / 180;
-  const deltaLat = (lat2 - lat1) * Math.PI / 180;
-  const deltaLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-    Math.cos(lat1Rad) * Math.cos(lat2Rad) *
-    Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return radius * c;
-};
 
 const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -143,7 +129,7 @@ const Dashboard = ({ user, onLogout }) => {
 
     setLocLoading(true);
 
-    let coords = { latitude: null, longitude: null };
+    let coords = { latitude: null, longitude: null, accuracy: null };
     try {
       const position = await getCoords();
       coords = position.coords;
@@ -160,6 +146,7 @@ const Dashboard = ({ user, onLogout }) => {
         timeOut,
         outLat: coords.latitude,
         outLng: coords.longitude,
+        outAccuracy: coords.accuracy,
         outPhoto,
       });
       setCurrentStatus('Out');
@@ -176,20 +163,11 @@ const Dashboard = ({ user, onLogout }) => {
   const handlePunchIn = async () => {
     setLocLoading(true);
 
-    let coords = { latitude: null, longitude: null };
-    let isOutOfBounds = true;
+    let coords = { latitude: null, longitude: null, accuracy: null };
 
     try {
       const position = await getCoords();
       coords = position.coords;
-
-      const distance = calculateDistance(
-        coords.latitude,
-        coords.longitude,
-        BLUE_OX_OFFICE.lat,
-        BLUE_OX_OFFICE.lng,
-      );
-      isOutOfBounds = distance > 100;
     } catch (err) {
       console.warn('Location access denied or timed out', err);
     }
@@ -208,8 +186,8 @@ const Dashboard = ({ user, onLogout }) => {
         status: now > nineAM ? 'Late' : 'On Time',
         lat: coords.latitude,
         lng: coords.longitude,
+        accuracy: coords.accuracy,
         photo,
-        isOutOfBounds,
       });
 
       setTodayLog(newLog);
