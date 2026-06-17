@@ -1,8 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const path = require('path');
 const compression = require('compression');
 const helmet = require('helmet');
+const multer = require('multer');
 const { Parser } = require('json2csv');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
@@ -16,11 +18,43 @@ const OFFICE_LOCATION = {
 };
 const OFFICE_RADIUS_METERS = Number.parseInt(process.env.OFFICE_RADIUS_METERS || '100', 10);
 const MAX_TRUSTED_ACCURACY_METERS = Number.parseInt(process.env.MAX_TRUSTED_ACCURACY_METERS || '150', 10);
+const employeePhotoDir = path.join(__dirname, '../public/employee-photos');
+const BLUE_OX_EMAIL_DOMAIN = '@blueox.com';
+
+fs.mkdirSync(employeePhotoDir, { recursive: true });
+
+const employeePhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: employeePhotoDir,
+    filename: (_req, file, cb) => {
+      const safeExtension = path.extname(file.originalname).toLowerCase() || '.jpg';
+      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExtension}`);
+    }
+  }),
+  limits: {
+    fileSize: 2 * 1024 * 1024
+  },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Employee photo must be an image file'));
+      return;
+    }
+    cb(null, true);
+  }
+});
 
 const parseLimit = (value, fallback, max) => {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.min(parsed, max);
+};
+
+const normalizeBlueOxEmail = (value) => {
+  const trimmedValue = String(value || '').trim().toLowerCase();
+  if (!trimmedValue) return '';
+  const emailName = trimmedValue.includes('@') ? trimmedValue.split('@')[0] : trimmedValue;
+  if (!emailName) return '';
+  return `${emailName}${BLUE_OX_EMAIL_DOMAIN}`;
 };
 
 const listLogSelect = {
@@ -57,6 +91,7 @@ const adminUserSelect = {
   email: true,
   role: true,
   faceDescriptor: true,
+  photoUrl: true,
   createdAt: true,
   _count: {
     select: { logs: true }
@@ -68,6 +103,11 @@ const toAdminUser = (user) => ({
   faceEnrolled: Boolean(user.faceDescriptor),
   faceDescriptor: undefined
 });
+
+const deletePublicFile = (fileUrl) => {
+  if (!fileUrl?.startsWith('/employee-photos/')) return;
+  fs.rm(path.join(__dirname, '../public', fileUrl), { force: true }, () => {});
+};
 
 const toNullableNumber = (value) => {
   const number = Number(value);
@@ -152,14 +192,23 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.static(distPath, { maxAge: 0 }));
+app.use('/employee-photos', express.static(employeePhotoDir));
 
 // Auth Routes (Simplified for initial version)
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
+  const normalizedEmail = normalizeBlueOxEmail(email);
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (user && user.password === password) { // In production, use bcrypt
-      res.json({ id: user.id, name: user.name, email: user.email, role: user.role, faceDescriptor: user.faceDescriptor });
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        faceDescriptor: user.faceDescriptor,
+        photoUrl: user.photoUrl
+      });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -168,23 +217,28 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.post('/api/admin/users', async (req, res) => {
+app.post('/api/admin/users', employeePhotoUpload.single('photo'), async (req, res) => {
   const { name, email, password, role } = req.body;
+  const normalizedEmail = normalizeBlueOxEmail(email);
+  const photoUrl = req.file ? `/employee-photos/${req.file.filename}` : null;
   try {
-    if (!name?.trim() || !email?.trim() || !password?.trim()) {
+    if (!name?.trim() || !normalizedEmail || !password?.trim()) {
+      deletePublicFile(photoUrl);
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
+      deletePublicFile(photoUrl);
       return res.status(400).json({ error: 'User with this email already exists' });
     }
     const newUser = await prisma.user.create({
       data: {
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
-        role: role || 'employee'
+        role: role || 'employee',
+        photoUrl
       },
       select: adminUserSelect
     });
@@ -206,38 +260,72 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-app.put('/api/admin/users/:id', async (req, res) => {
+app.put('/api/admin/users/:id', employeePhotoUpload.single('photo'), async (req, res) => {
   const { name, email, password, role } = req.body;
+  const normalizedEmail = normalizeBlueOxEmail(email);
+  const photoUrl = req.file ? `/employee-photos/${req.file.filename}` : null;
   try {
-    if (!name?.trim() || !email?.trim()) {
+    if (!name?.trim() || !normalizedEmail) {
+      deletePublicFile(photoUrl);
       return res.status(400).json({ error: 'Name and email are required' });
     }
 
     const existingUser = await prisma.user.findFirst({
       where: {
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         NOT: { id: req.params.id }
       }
     });
     if (existingUser) {
+      deletePublicFile(photoUrl);
       return res.status(400).json({ error: 'Another user already has this email' });
     }
 
+    const currentUser = photoUrl
+      ? await prisma.user.findUnique({ where: { id: req.params.id }, select: { photoUrl: true } })
+      : null;
     const data = {
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       role: role || 'employee'
     };
     if (password?.trim()) data.password = password;
+    if (photoUrl) data.photoUrl = photoUrl;
 
     const updatedUser = await prisma.user.update({
       where: { id: req.params.id },
       data,
       select: adminUserSelect
     });
+    if (photoUrl) deletePublicFile(currentUser?.photoUrl);
     res.json(toAdminUser(updatedUser));
   } catch (err) {
+    deletePublicFile(photoUrl);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        faceDescriptor: true,
+        photoUrl: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    return res.json(user);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -268,7 +356,8 @@ app.put('/api/users/:userId/password', async (req, res) => {
         name: true,
         email: true,
         role: true,
-        faceDescriptor: true
+        faceDescriptor: true,
+        photoUrl: true
       }
     });
 
@@ -294,6 +383,7 @@ app.delete('/api/admin/users/:id', async (req, res) => {
       prisma.log.deleteMany({ where: { userId: req.params.id } }),
       prisma.user.delete({ where: { id: req.params.id } })
     ]);
+    deletePublicFile(userToDelete.photoUrl);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -492,12 +582,37 @@ app.post('/api/users/:userId/face', async (req, res) => {
   try {
     const updatedUser = await prisma.user.update({
       where: { id: req.params.userId },
-      data: { faceDescriptor }
+      data: { faceDescriptor },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        faceDescriptor: true,
+        photoUrl: true
+      }
     });
     res.json(updatedUser);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.use((err, _req, res, next) => {
+  void next;
+
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Employee photo must be 2MB or smaller'
+      : err.message;
+    return res.status(400).json({ error: message });
+  }
+
+  if (err.message === 'Employee photo must be an image file') {
+    return res.status(400).json({ error: err.message });
+  }
+
+  return res.status(500).json({ error: err.message || 'Server error' });
 });
 
 // The "catchall" handler: for any request that doesn't

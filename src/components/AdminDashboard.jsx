@@ -11,11 +11,14 @@ import {
   createMemo,
   updateMemo,
   deleteMemo,
+  BLUE_OX_EMAIL_DOMAIN,
+  getBlueOxEmailName,
+  getPublicAssetUrl,
 } from '../utils/storage';
 
 const AdminCharts = lazy(() => import('./AdminCharts'));
 
-const emptyEmployee = { name: '', email: '', password: '', role: 'employee' };
+const emptyEmployee = { name: '', email: '', password: '', role: 'employee', photo: null };
 const emptyFilters = {
   search: '',
   employeeId: 'all',
@@ -170,9 +173,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     setEditingEmployeeId(employee.id);
     setEditingEmployee({
       name: employee.name,
-      email: employee.email,
+      email: getBlueOxEmailName(employee.email),
       password: '',
       role: employee.role,
+      photo: null,
     });
     setEmployeeError('');
   };
@@ -342,13 +346,20 @@ const AdminDashboard = ({ user, onLogout }) => {
             </div>
             <div className="form-field">
               <label>Email</label>
-              <input
-                type="email"
-                className="input-field"
-                value={newEmployee.email}
-                onChange={(event) => setNewEmployee({ ...newEmployee, email: event.target.value })}
-                required
-              />
+              <div className="input-with-suffix">
+                <input
+                  type="text"
+                  className="input-field"
+                  value={newEmployee.email}
+                  onChange={(event) => setNewEmployee({ ...newEmployee, email: getBlueOxEmailName(event.target.value) })}
+                  placeholder="firstname"
+                  autoCapitalize="none"
+                  pattern="[A-Za-z0-9._%+\\-]+"
+                  title={`Enter only the part before ${BLUE_OX_EMAIL_DOMAIN}`}
+                  required
+                />
+                <span>{BLUE_OX_EMAIL_DOMAIN}</span>
+              </div>
             </div>
             <div className="form-field">
               <label>Password</label>
@@ -370,6 +381,15 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <option value="employee">Employee</option>
                 <option value="admin">Admin</option>
               </select>
+            </div>
+            <div className="form-field">
+              <label>Employee Photo</label>
+              <input
+                type="file"
+                className="input-field file-input"
+                accept="image/*"
+                onChange={(event) => setNewEmployee({ ...newEmployee, photo: event.target.files?.[0] ?? null })}
+              />
             </div>
             <button type="submit" className="btn-primary form-submit" disabled={addLoading}>
               {addLoading ? 'Adding...' : 'Register User'}
@@ -432,13 +452,19 @@ const AdminDashboard = ({ user, onLogout }) => {
                         />
                       </td>
                       <td data-label="Email">
-                        <input
-                          className="input-field table-input"
-                          type="email"
-                          value={editingEmployee.email}
-                          onChange={(event) => setEditingEmployee({ ...editingEmployee, email: event.target.value })}
-                          required
-                        />
+                        <div className="input-with-suffix table-input-with-suffix">
+                          <input
+                            className="input-field table-input"
+                            type="text"
+                            value={editingEmployee.email}
+                            onChange={(event) => setEditingEmployee({ ...editingEmployee, email: getBlueOxEmailName(event.target.value) })}
+                            autoCapitalize="none"
+                            pattern="[A-Za-z0-9._%+\\-]+"
+                            title={`Enter only the part before ${BLUE_OX_EMAIL_DOMAIN}`}
+                            required
+                          />
+                          <span>{BLUE_OX_EMAIL_DOMAIN}</span>
+                        </div>
                         <input
                           className="input-field table-input"
                           type="password"
@@ -456,6 +482,12 @@ const AdminDashboard = ({ user, onLogout }) => {
                           <option value="employee">Employee</option>
                           <option value="admin">Admin</option>
                         </select>
+                        <input
+                          className="input-field table-input file-input"
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => setEditingEmployee({ ...editingEmployee, photo: event.target.files?.[0] ?? null })}
+                        />
                       </td>
                       <td data-label="Face ID">
                         <span className={`status-tag ${employee.faceEnrolled ? 'on-time' : 'late'}`}>
@@ -486,7 +518,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                     </>
                   ) : (
                     <>
-                      <td data-label="Employee" className="strong-cell">{employee.name}</td>
+                      <td data-label="Employee" className="strong-cell">
+                        <div className="employee-name-cell">
+                          {employee.photoUrl && (
+                            <img src={getPublicAssetUrl(employee.photoUrl)} loading="lazy" alt={employee.name} className="employee-thumb" />
+                          )}
+                          <span>{employee.name}</span>
+                        </div>
+                      </td>
                       <td data-label="Email">{employee.email}</td>
                       <td data-label="Role">
                         <span className="status-tag neutral">{employee.role}</span>

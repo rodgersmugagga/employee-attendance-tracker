@@ -1,4 +1,26 @@
-const API_BASE_URL = import.meta.env.MODE === 'production' ? '/api' : 'http://localhost:5000/api';
+const API_ORIGIN = import.meta.env.MODE === 'production' ? '' : 'http://localhost:5000';
+const API_BASE_URL = `${API_ORIGIN}/api`;
+export const BLUE_OX_EMAIL_DOMAIN = '@blueox.com';
+
+export const normalizeBlueOxEmail = (value) => {
+  const trimmedValue = String(value || '').trim().toLowerCase();
+  if (!trimmedValue) return '';
+  const emailName = trimmedValue.includes('@') ? trimmedValue.split('@')[0] : trimmedValue;
+  if (!emailName) return '';
+  return `${emailName}${BLUE_OX_EMAIL_DOMAIN}`;
+};
+
+export const getBlueOxEmailName = (value) => {
+  const trimmedValue = String(value || '').trim().toLowerCase();
+  return trimmedValue.endsWith(BLUE_OX_EMAIL_DOMAIN)
+    ? trimmedValue.slice(0, -BLUE_OX_EMAIL_DOMAIN.length)
+    : trimmedValue.split('@')[0];
+};
+
+export const getPublicAssetUrl = (value) => {
+  if (!value || /^(https?:|data:|blob:)/.test(value)) return value;
+  return `${API_ORIGIN}${value.startsWith('/') ? value : `/${value}`}`;
+};
 
 const fetchJson = async (url, options) => {
   const response = await fetch(url, options);
@@ -19,15 +41,31 @@ export const loginUser = async (email, password) => {
   return fetchJson(`${API_BASE_URL}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email: normalizeBlueOxEmail(email), password })
   });
 };
 
 export const registerEmployee = async (userData) => {
+  const email = normalizeBlueOxEmail(userData.email);
+
+  if (userData.photo) {
+    const formData = new FormData();
+    formData.append('name', userData.name);
+    formData.append('email', email);
+    formData.append('password', userData.password);
+    formData.append('role', userData.role);
+    formData.append('photo', userData.photo);
+
+    return fetchJson(`${API_BASE_URL}/admin/users`, {
+      method: 'POST',
+      body: formData
+    });
+  }
+
   return fetchJson(`${API_BASE_URL}/admin/users`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
+    body: JSON.stringify({ ...userData, email })
   });
 };
 
@@ -36,10 +74,26 @@ export const getEmployees = async () => {
 };
 
 export const updateEmployee = async (id, userData) => {
+  const email = normalizeBlueOxEmail(userData.email);
+
+  if (userData.photo) {
+    const formData = new FormData();
+    formData.append('name', userData.name);
+    formData.append('email', email);
+    formData.append('password', userData.password);
+    formData.append('role', userData.role);
+    formData.append('photo', userData.photo);
+
+    return fetchJson(`${API_BASE_URL}/admin/users/${id}`, {
+      method: 'PUT',
+      body: formData
+    });
+  }
+
   return fetchJson(`${API_BASE_URL}/admin/users/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
+    body: JSON.stringify({ ...userData, email })
   });
 };
 
@@ -49,6 +103,10 @@ export const updatePassword = async (userId, passwordData) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(passwordData)
   });
+};
+
+export const getUserProfile = async (userId) => {
+  return fetchJson(`${API_BASE_URL}/users/${userId}`);
 };
 
 export const deleteEmployee = async (id) => {

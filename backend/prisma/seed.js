@@ -6,7 +6,11 @@ async function main() {
   // Create initial users
   await prisma.user.upsert({
     where: { email: 'admin@blueox.com' },
-    update: {},
+    update: {
+      name: 'Manager',
+      password: 'password123',
+      role: 'admin'
+    },
     create: {
       name: 'Manager',
       email: 'admin@blueox.com',
@@ -17,7 +21,11 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'john@blueox.com' },
-    update: {},
+    update: {
+      name: 'John Doe',
+      password: 'password123',
+      role: 'employee'
+    },
     create: {
       name: 'John Doe',
       email: 'john@blueox.com',

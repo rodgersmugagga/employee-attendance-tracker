@@ -1,5 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { getLogs, punchIn, punchOut, getMemos, updateFaceDescriptor, setStoredUser, updatePassword } from '../utils/storage';
+import {
+  getLogs,
+  punchIn,
+  punchOut,
+  getMemos,
+  updateFaceDescriptor,
+  setStoredUser,
+  updatePassword,
+  getPublicAssetUrl,
+  getUserProfile,
+} from '../utils/storage';
 
 const FaceVerificationModal = lazy(() => import('./FaceVerificationModal'));
 
@@ -17,6 +27,7 @@ const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minu
 const emptyPasswordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
 
 const Dashboard = ({ user, onLogout }) => {
+  const [profileUser, setProfileUser] = useState(user);
   const [logs, setLogs] = useState([]);
   const [currentStatus, setCurrentStatus] = useState('Out');
   const [memos, setMemos] = useState([]);
@@ -41,9 +52,16 @@ const Dashboard = ({ user, onLogout }) => {
   const loadDashboardData = useCallback(() => Promise.all([
     getLogs(user.id),
     getMemos(),
+    getUserProfile(user.id),
   ]), [user.id]);
 
-  const applyDashboardData = useCallback((userLogs, allMemos) => {
+  const applyDashboardData = useCallback((userLogs, allMemos, latestUser) => {
+    if (latestUser) {
+      setProfileUser(latestUser);
+      setFaceDescriptor(latestUser.faceDescriptor ?? null);
+      setStoredUser(latestUser);
+    }
+
     setLogs(userLogs);
     setMemos(allMemos);
 
@@ -59,8 +77,8 @@ const Dashboard = ({ user, onLogout }) => {
   const refreshDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [userLogs, allMemos] = await loadDashboardData();
-      applyDashboardData(userLogs, allMemos);
+      const [userLogs, allMemos, latestUser] = await loadDashboardData();
+      applyDashboardData(userLogs, allMemos, latestUser);
     } catch (err) {
       console.error('Failed to fetch logs', err);
     } finally {
@@ -73,8 +91,8 @@ const Dashboard = ({ user, onLogout }) => {
 
     const loadInitialData = async () => {
       try {
-        const [userLogs, allMemos] = await loadDashboardData();
-        if (!cancelled) applyDashboardData(userLogs, allMemos);
+        const [userLogs, allMemos, latestUser] = await loadDashboardData();
+        if (!cancelled) applyDashboardData(userLogs, allMemos, latestUser);
       } catch (err) {
         console.error('Failed to fetch logs', err);
       } finally {
@@ -186,7 +204,7 @@ const Dashboard = ({ user, onLogout }) => {
     try {
       const newLog = await punchIn({
         userId: user.id,
-        userName: user.name,
+        userName: profileUser.name,
         date: now.toLocaleDateString(),
         timeIn: formatTime(now),
         status: now > nineAM ? 'Late' : 'On Time',
@@ -239,6 +257,7 @@ const Dashboard = ({ user, onLogout }) => {
     if (!faceDescriptor) {
       try {
         const updatedUser = await updateFaceDescriptor(user.id, detection.descriptor);
+        setProfileUser(updatedUser);
         setStoredUser(updatedUser);
         setFaceDescriptor(updatedUser.faceDescriptor);
       } catch (err) {
@@ -294,6 +313,7 @@ const Dashboard = ({ user, onLogout }) => {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
+      setProfileUser(updatedUser);
       setStoredUser(updatedUser);
       setFaceDescriptor(updatedUser.faceDescriptor ?? null);
       setPasswordForm(emptyPasswordForm);
@@ -321,12 +341,17 @@ const Dashboard = ({ user, onLogout }) => {
       <header className="page-header">
         <div className="page-heading">
           <h2 className="page-title">
-            Welcome, {user.name}
+            Welcome, {profileUser.name}
             {perfectWeek && <span className="badge badge-award">Perfect week</span>}
           </h2>
           <p>Blue Ox Kampus Employee</p>
         </div>
-        <button onClick={onLogout} className="btn-ghost">Logout</button>
+        <div className="employee-header-actions">
+          {profileUser.photoUrl && (
+            <img src={getPublicAssetUrl(profileUser.photoUrl)} alt={profileUser.name} className="employee-dashboard-photo" />
+          )}
+          <button onClick={onLogout} className="btn-ghost">Logout</button>
+        </div>
       </header>
 
       <div className="dashboard-grid">

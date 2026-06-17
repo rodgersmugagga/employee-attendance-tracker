@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { loginUser, setStoredUser } from '../utils/storage';
+import { BLUE_OX_EMAIL_DOMAIN, getBlueOxEmailName, loginUser, setStoredUser } from '../utils/storage';
 
 const Login = ({ onLoginSuccess }) => {
   const [emailName, setEmailName] = useState('');
@@ -12,8 +12,7 @@ const Login = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
     try {
-      const email = `${emailName.trim().toLowerCase()}@blueox.com`;
-      const user = await loginUser(email, password);
+      const user = await loginUser(emailName, password);
       setStoredUser(user);
       onLoginSuccess(user);
     } catch {
@@ -31,21 +30,21 @@ const Login = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleLogin} className="stack-form">
           <div className="form-field">
-            <label>Email Name</label>
+            <label>Email</label>
             <div className="input-with-suffix">
               <input
                 type="text"
                 className="input-field"
                 value={emailName}
-                onChange={(e) => setEmailName(e.target.value)}
+                onChange={(e) => setEmailName(getBlueOxEmailName(e.target.value))}
                 placeholder="firstname"
                 autoCapitalize="none"
                 autoComplete="username"
-                pattern="[A-Za-z0-9._%+-]+"
-                title="Use only the part before @blueox.com"
+                pattern="[A-Za-z0-9._%+\\-]+"
+                title={`Enter only the part before ${BLUE_OX_EMAIL_DOMAIN}`}
                 required
               />
-              <span>@blueox.com</span>
+              <span>{BLUE_OX_EMAIL_DOMAIN}</span>
             </div>
           </div>
           <div className="form-field">

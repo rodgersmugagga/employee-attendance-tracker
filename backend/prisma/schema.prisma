@@ -17,6 +17,7 @@ model User {
   password  String
   role           String   @default("employee") // admin or employee
   faceDescriptor String?  // Stringified Float32Array (128 units)
+  photoUrl       String?
   logs           Log[]
   createdAt      DateTime @default(now())
 }

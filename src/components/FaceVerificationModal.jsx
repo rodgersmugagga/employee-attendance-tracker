@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import Webcam from 'react-webcam';
 
 const accentColor = (type, error) => {
-  if (error) return '#ff4444';
-  return type === 'in' ? 'var(--primary)' : '#ff6600';
+  if (error) return '#d95c4a';
+  return type === 'in' ? 'var(--primary)' : 'var(--accent-strong)';
 };
 
 const FaceVerificationModal = ({
@@ -60,11 +60,11 @@ const FaceVerificationModal = ({
         const box = resized.detection.box;
 
         const gradient = ctx.createLinearGradient(box.x, box.y, box.x + box.width, box.y + box.height);
-        gradient.addColorStop(0, '#00e5ff');
-        gradient.addColorStop(1, '#7c4dff');
+        gradient.addColorStop(0, '#6fa8cf');
+        gradient.addColorStop(1, '#c94f2d');
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 3;
-        ctx.shadowColor = '#00e5ff';
+        ctx.shadowColor = '#c94f2d';
         ctx.shadowBlur = 10;
         ctx.strokeRect(box.x, box.y, box.width, box.height);
 
@@ -82,9 +82,9 @@ const FaceVerificationModal = ({
         });
 
         const score = Math.round(detection.detection.score * 100);
-        ctx.fillStyle = 'rgba(0,229,255,0.85)';
+        ctx.fillStyle = 'rgba(244,179,107,0.9)';
         ctx.fillRect(box.x, Math.max(0, box.y - 22), 80, 20);
-        ctx.fillStyle = '#000';
+        ctx.fillStyle = '#081624';
         ctx.font = 'bold 11px monospace';
         ctx.fillText(`Face ${score}%`, box.x + 4, Math.max(13, box.y - 7));
 
