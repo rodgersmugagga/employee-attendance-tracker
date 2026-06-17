@@ -241,6 +241,43 @@ app.put('/api/admin/users/:id', async (req, res) => {
   }
 });
 
+app.put('/api/users/:userId/password', async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    if (!currentPassword || !newPassword?.trim()) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.params.userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    if (user.password !== currentPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.params.userId },
+      data: { password: newPassword.trim() },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        faceDescriptor: true
+      }
+    });
+
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/admin/users/:id', async (req, res) => {
   try {
     const adminCount = await prisma.user.count({ where: { role: 'admin' } });

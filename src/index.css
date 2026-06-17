@@ -282,6 +282,43 @@ h3 {
   outline: none;
 }
 
+.input-with-suffix {
+  display: flex;
+  min-height: 46px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.input-with-suffix:focus-within {
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.input-with-suffix .input-field {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.input-with-suffix .input-field:focus {
+  background: transparent;
+}
+
+.input-with-suffix span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 0.9rem;
+  border-left: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 textarea.input-field {
   min-height: 7rem;
   resize: vertical;
@@ -302,6 +339,10 @@ textarea.input-field {
 
 .stack-form {
   gap: var(--space-lg);
+}
+
+.compact-stack {
+  gap: var(--space-md);
 }
 
 .memo-form,
@@ -342,6 +383,11 @@ textarea.input-field {
 .form-error {
   margin-top: var(--space-md);
   color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.form-success {
+  color: var(--success);
   font-size: 0.9rem;
 }
 
@@ -472,6 +518,11 @@ textarea.input-field {
 
 .notice-panel h3 {
   color: var(--accent);
+}
+
+.password-form,
+.password-message {
+  margin-top: var(--space-md);
 }
 
 .memo-card {

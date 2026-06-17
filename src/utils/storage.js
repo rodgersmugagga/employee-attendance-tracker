@@ -43,6 +43,14 @@ export const updateEmployee = async (id, userData) => {
   });
 };
 
+export const updatePassword = async (userId, passwordData) => {
+  return fetchJson(`${API_BASE_URL}/users/${userId}/password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(passwordData)
+  });
+};
+
 export const deleteEmployee = async (id) => {
   return fetchJson(`${API_BASE_URL}/admin/users/${id}`, {
     method: 'DELETE'

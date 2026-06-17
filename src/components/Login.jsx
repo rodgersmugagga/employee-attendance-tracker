@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { loginUser, setStoredUser } from '../utils/storage';
 
 const Login = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('');
+  const [emailName, setEmailName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -12,6 +12,7 @@ const Login = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
     try {
+      const email = `${emailName.trim().toLowerCase()}@blueox.com`;
       const user = await loginUser(email, password);
       setStoredUser(user);
       onLoginSuccess(user);
@@ -30,15 +31,22 @@ const Login = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleLogin} className="stack-form">
           <div className="form-field">
-            <label>Email Address</label>
-            <input
-              type="email"
-              className="input-field"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@blueox.com"
-              required
-            />
+            <label>Email Name</label>
+            <div className="input-with-suffix">
+              <input
+                type="text"
+                className="input-field"
+                value={emailName}
+                onChange={(e) => setEmailName(e.target.value)}
+                placeholder="firstname"
+                autoCapitalize="none"
+                autoComplete="username"
+                pattern="[A-Za-z0-9._%+-]+"
+                title="Use only the part before @blueox.com"
+                required
+              />
+              <span>@blueox.com</span>
+            </div>
           </div>
           <div className="form-field">
             <label>Password</label>

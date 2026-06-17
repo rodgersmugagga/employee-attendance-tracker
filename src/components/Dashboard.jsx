@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { getLogs, punchIn, punchOut, getMemos, updateFaceDescriptor, setStoredUser } from '../utils/storage';
+import { getLogs, punchIn, punchOut, getMemos, updateFaceDescriptor, setStoredUser, updatePassword } from '../utils/storage';
 
 const FaceVerificationModal = lazy(() => import('./FaceVerificationModal'));
 
@@ -14,6 +14,7 @@ const getCoords = () => new Promise((resolve, reject) => {
 });
 
 const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const emptyPasswordForm = { currentPassword: '', newPassword: '', confirmPassword: '' };
 
 const Dashboard = ({ user, onLogout }) => {
   const [logs, setLogs] = useState([]);
@@ -29,6 +30,11 @@ const Dashboard = ({ user, onLogout }) => {
   const [faceApi, setFaceApi] = useState(null);
   const [faceError, setFaceError] = useState(null);
   const [faceDescriptor, setFaceDescriptor] = useState(user.faceDescriptor ?? null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordForm, setPasswordForm] = useState(emptyPasswordForm);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
   const webcamRef = useRef(null);
   const faceApiPromiseRef = useRef(null);
 
@@ -256,6 +262,50 @@ const Dashboard = ({ user, onLogout }) => {
     else await handlePunchOut();
   };
 
+  const togglePasswordForm = () => {
+    setShowPasswordForm((isVisible) => {
+      const nextVisible = !isVisible;
+      if (!nextVisible) {
+        setPasswordForm(emptyPasswordForm);
+        setPasswordError('');
+      }
+      setPasswordSuccess('');
+      return nextVisible;
+    });
+  };
+
+  const handlePasswordChange = async (event) => {
+    event.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const updatedUser = await updatePassword(user.id, {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      setStoredUser(updatedUser);
+      setFaceDescriptor(updatedUser.faceDescriptor ?? null);
+      setPasswordForm(emptyPasswordForm);
+      setPasswordSuccess('Password updated successfully.');
+      setShowPasswordForm(false);
+    } catch (err) {
+      setPasswordError(err.message);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="container page-shell">
@@ -334,6 +384,62 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
             </section>
           )}
+
+          <section className="glass-card password-panel">
+            <button
+              type="button"
+              className="btn-primary full-width"
+              onClick={togglePasswordForm}
+              disabled={passwordLoading}
+            >
+              {showPasswordForm ? 'Cancel Password Update' : 'Update Password'}
+            </button>
+
+            {passwordSuccess && <p className="form-success password-message">{passwordSuccess}</p>}
+
+            {showPasswordForm && (
+              <form onSubmit={handlePasswordChange} className="stack-form compact-stack password-form animate-fade-in">
+                <div className="form-field">
+                  <label>Current Password</label>
+                  <input
+                    type="password"
+                    className="input-field"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-field">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    className="input-field"
+                    value={passwordForm.newPassword}
+                    onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
+                    minLength="6"
+                    required
+                  />
+                </div>
+                <div className="form-field">
+                  <label>Confirm New Password</label>
+                  <input
+                    type="password"
+                    className="input-field"
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })}
+                    minLength="6"
+                    required
+                  />
+                </div>
+
+                {passwordError && <p className="form-error compact-error">{passwordError}</p>}
+
+                <button type="submit" className="btn-primary full-width" disabled={passwordLoading}>
+                  {passwordLoading ? 'Saving...' : 'Save Password'}
+                </button>
+              </form>
+            )}
+          </section>
         </div>
 
         <section className="glass-card table-card">
