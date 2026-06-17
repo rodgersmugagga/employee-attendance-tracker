@@ -13,7 +13,7 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 const OFFICE_LOCATION = {
-  lat: Number.parseFloat(process.env.OFFICE_LAT || '-0.5935307533555609, '),
+  lat: Number.parseFloat(process.env.OFFICE_LAT || '-0.5935307533555609'),
   lng: Number.parseFloat(process.env.OFFICE_LNG || '30.611884814347622')
 };
 const OFFICE_RADIUS_METERS = Number.parseInt(process.env.OFFICE_RADIUS_METERS || '100', 10);
@@ -24,13 +24,7 @@ const BLUE_OX_EMAIL_DOMAIN = '@blueox.com';
 fs.mkdirSync(employeePhotoDir, { recursive: true });
 
 const employeePhotoUpload = multer({
-  storage: multer.diskStorage({
-    destination: employeePhotoDir,
-    filename: (_req, file, cb) => {
-      const safeExtension = path.extname(file.originalname).toLowerCase() || '.jpg';
-      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExtension}`);
-    }
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 2 * 1024 * 1024
   },
@@ -107,6 +101,11 @@ const toAdminUser = (user) => ({
 const deletePublicFile = (fileUrl) => {
   if (!fileUrl?.startsWith('/employee-photos/')) return;
   fs.rm(path.join(__dirname, '../public', fileUrl), { force: true }, () => {});
+};
+
+const getUploadedPhotoDataUrl = (file) => {
+  if (!file) return null;
+  return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 };
 
 const toNullableNumber = (value) => {
@@ -220,7 +219,7 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/admin/users', employeePhotoUpload.single('photo'), async (req, res) => {
   const { name, email, password, role } = req.body;
   const normalizedEmail = normalizeBlueOxEmail(email);
-  const photoUrl = req.file ? `/employee-photos/${req.file.filename}` : null;
+  const photoUrl = getUploadedPhotoDataUrl(req.file);
   try {
     if (!name?.trim() || !normalizedEmail || !password?.trim()) {
       deletePublicFile(photoUrl);
@@ -263,7 +262,7 @@ app.get('/api/admin/users', async (req, res) => {
 app.put('/api/admin/users/:id', employeePhotoUpload.single('photo'), async (req, res) => {
   const { name, email, password, role } = req.body;
   const normalizedEmail = normalizeBlueOxEmail(email);
-  const photoUrl = req.file ? `/employee-photos/${req.file.filename}` : null;
+  const photoUrl = getUploadedPhotoDataUrl(req.file);
   try {
     if (!name?.trim() || !normalizedEmail) {
       deletePublicFile(photoUrl);
