@@ -418,7 +418,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         </article>
       </section>
 
-      <section className="glass-card table-card">
+      <section className="glass-card table-card employee-card">
         <div className="section-title-row">
           <div>
             <h3>Employee Management</h3>
@@ -658,7 +658,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         </section>
       </div>
 
-      <section className="glass-card table-card">
+      <section className="glass-card table-card records-card">
         <div className="section-title-row">
           <div>
             <h3>Employee Attendance Records</h3>

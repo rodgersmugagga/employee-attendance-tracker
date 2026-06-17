@@ -1,5 +1,11 @@
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
+const chartColors = {
+  blue: '#0044CC',
+  orange: '#F58220',
+  gray: '#DDE2EA',
+};
+
 const AdminCharts = ({ logs, stats }) => {
   const trendData = logs.length > 0
     ? logs.slice(0, 7).reverse().map((log) => ({
@@ -8,12 +14,12 @@ const AdminCharts = ({ logs, stats }) => {
     }))
     : [];
   const statusData = [
-    ...(stats.onTime > 0 ? [{ name: 'On Time', value: stats.onTime, color: '#6fa8cf' }] : []),
-    ...(stats.late > 0 ? [{ name: 'Late', value: stats.late, color: '#c94f2d' }] : []),
+    ...(stats.onTime > 0 ? [{ name: 'On Time', value: stats.onTime, color: chartColors.blue }] : []),
+    ...(stats.late > 0 ? [{ name: 'Late', value: stats.late, color: chartColors.orange }] : []),
   ];
   const pieData = statusData.length > 0
     ? statusData
-    : [{ name: 'No logs', value: 1, color: '#8ba1b8' }];
+    : [{ name: 'No logs', value: 1, color: chartColors.gray }];
 
   return (
     <div className="chart-grid">
@@ -22,11 +28,11 @@ const AdminCharts = ({ logs, stats }) => {
         <div className="chart-body">
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
               <YAxis hide />
               <Tooltip
-                contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--glass-border)', color: 'white' }}
+                contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-main)' }}
                 itemStyle={{ color: 'var(--primary)' }}
               />
               <Line type="monotone" dataKey="status" stroke="var(--primary)" strokeWidth={2} dot={{ fill: 'var(--primary)' }} />
@@ -53,7 +59,7 @@ const AdminCharts = ({ logs, stats }) => {
                   <Cell key={entry.name} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--glass-border)', color: 'white' }} />
+              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-main)' }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
