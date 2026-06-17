@@ -20,7 +20,6 @@ const emptyFilters = {
   search: '',
   employeeId: 'all',
   status: 'all',
-  location: 'all',
   date: '',
 };
 
@@ -78,11 +77,9 @@ const AdminDashboard = ({ user, onLogout }) => {
         log.status?.toLowerCase().includes(search);
       const matchesEmployee = filters.employeeId === 'all' || log.userId === filters.employeeId;
       const matchesStatus = filters.status === 'all' || log.status === filters.status;
-      const locationStatus = log.locationStatus || (log.isOutOfBounds ? 'remote' : 'onsite');
-      const matchesLocation = filters.location === 'all' || locationStatus === filters.location;
       const matchesDate = !filters.date || log.date === getInputDateLabel(filters.date);
 
-      return matchesSearch && matchesEmployee && matchesStatus && matchesLocation && matchesDate;
+      return matchesSearch && matchesEmployee && matchesStatus && matchesDate;
     });
   }, [filters, logs]);
 
@@ -671,17 +668,6 @@ const AdminDashboard = ({ user, onLogout }) => {
             <option value="all">All status</option>
             <option value="On Time">On time</option>
             <option value="Late">Late</option>
-          </select>
-          <select
-            className="input-field"
-            value={filters.location}
-            onChange={(event) => updateFilter('location', event.target.value)}
-          >
-            <option value="all">All locations</option>
-            <option value="onsite">On-site</option>
-            <option value="remote">Remote</option>
-            <option value="low_accuracy">Low accuracy</option>
-            <option value="unknown">Unknown</option>
           </select>
           <input
             className="input-field"

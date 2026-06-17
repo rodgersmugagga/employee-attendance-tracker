@@ -21,7 +21,7 @@ function App() {
   const handleLogout = () => { clearStoredUser(); setCurrentUser(null); };
 
   return (
-    <div className={`App ${theme}`} style={{ minHeight: '100vh' }}>
+    <div className={`App ${theme}`}>
       <Suspense fallback={
         <div className="screen-loader">
           <div className="spinner" />
@@ -35,6 +35,12 @@ function App() {
           <Dashboard user={currentUser} onLogout={handleLogout} />
         )}
       </Suspense>
+      <footer className="developer-footer">
+        Developed by{' '}
+        <a href="https://rodvers.vercel.app" target="_blank" rel="noreferrer">
+          Rodvers
+        </a>
+      </footer>
     </div>
   );
 }

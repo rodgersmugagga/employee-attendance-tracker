@@ -59,6 +59,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.App {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
 button,
 input,
 select,
@@ -109,10 +115,33 @@ h3 {
 }
 
 .container {
+  flex: 1;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-md);
+}
+
+.auth-shell,
+.screen-loader {
+  flex: 1;
+}
+
+.developer-footer {
+  padding: var(--space-md);
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.developer-footer a {
+  color: var(--primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.developer-footer a:hover {
+  text-decoration: underline;
 }
 
 @media (min-width: 720px) {
