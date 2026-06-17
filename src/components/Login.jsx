@@ -25,7 +25,7 @@ const Login = ({ onLoginSuccess }) => {
   return (
     <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
       <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '1rem', fontSize: '2.5rem' }}>Blue Ox</h1>
+        <h1 style={{ textAlign: 'center', marginBottom: '1rem', fontSize: 'clamp(2rem, 10vw, 2.5rem)' }}>Blue Ox</h1>
         <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem' }}>Kampus Portal</p>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

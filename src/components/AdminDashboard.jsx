@@ -69,12 +69,12 @@ const AdminDashboard = ({ user, onLogout }) => {
 
   return (
     <div className="container animate-fade-in">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '2rem' }}>Manager Dashboard</h2>
+          <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)' }}>Manager Dashboard</h2>
           <p style={{ color: 'var(--text-muted)' }}>Blue Ox Kampus Administration</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-start', flexWrap: 'wrap', flex: 1, minWidth: '280px' }}>
           <button
             onClick={handleExport}
             className="btn-primary"
@@ -137,7 +137,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'clamp(0.5rem, 2vw, 1.5rem)', marginBottom: '2.5rem' }}>
         <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Total Logs</p>
           <h3 style={{ fontSize: '2rem', color: 'var(--primary)' }}>{stats.total}</h3>
@@ -156,7 +156,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         <div className="glass-card" style={{ height: '400px' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>Attendance Trends</h3>
           <ResponsiveContainer width="100%" height="85%">
-            <LineChart data={logs.slice(0, 7).reverse().map(l => ({ name: l.date, status: l.status === 'On Time' ? 1 : 0 }))}>
+            <LineChart data={logs.length > 0 ? logs.slice(0, 7).reverse().map(l => ({ name: l.date || 'N/A', status: l.status === 'On Time' ? 1 : 0 })) : []}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
               <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
               <YAxis hide />
@@ -192,7 +192,7 @@ const AdminDashboard = ({ user, onLogout }) => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
         <div className="glass-card">
           <h3 style={{ marginBottom: '1.5rem' }}>Post New Announcement</h3>
           <form onSubmit={async (e) => {
@@ -223,12 +223,12 @@ const AdminDashboard = ({ user, onLogout }) => {
           </form>
         </div>
 
-        <div className="glass-card">
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>Active Notices</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
             {memos.map(memo => (
-              <div key={memo.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem', background: 'hsla(0, 0%, 100%, 0.05)', borderRadius: '8px' }}>
-                <p style={{ fontSize: '0.9rem' }}>{memo.content}</p>
+              <div key={memo.id} className="memo-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                <p style={{ fontSize: '0.9rem', flex: 1 }}>{memo.content}</p>
                 {/* Delete button logic here */}
               </div>
             ))}
@@ -239,8 +239,8 @@ const AdminDashboard = ({ user, onLogout }) => {
 
       <div className="glass-card">
         <h3 style={{ marginBottom: '1.5rem' }}>Employee Attendance Records</h3>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-wrap">
+          <table>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--glass-border)', textAlign: 'left' }}>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Entry</th>
@@ -258,14 +258,14 @@ const AdminDashboard = ({ user, onLogout }) => {
                 <tr key={log.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <td style={{ padding: '1rem' }}>
                     {log.photo ? (
-                      <img src={log.photo} alt="In" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--primary)' }} />
+                      <img src={log.photo} loading="lazy" alt="In" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--primary)' }} />
                     ) : (
                       <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'hsla(0,0%,100%,0.05)' }}></div>
                     )}
                   </td>
                   <td style={{ padding: '1rem' }}>
                     {log.outPhoto ? (
-                      <img src={log.outPhoto} alt="Out" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #ff4444' }} />
+                      <img src={log.outPhoto} loading="lazy" alt="Out" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #ff4444' }} />
                     ) : (
                       <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'hsla(0,0%,100%,0.05)' }}></div>
                     )}

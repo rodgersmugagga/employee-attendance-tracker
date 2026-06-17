@@ -66,6 +66,8 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
   background-image:
     radial-gradient(circle at 0% 0%, hsla(var(--primary-h), var(--primary-s), 20%, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 100% 100%, hsla(45, 100%, 50%, 0.05) 0%, transparent 50%);
@@ -99,12 +101,13 @@ h3 {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
-  border-radius: 20px;
-  padding: var(--space-lg);
+  border-radius: 16px;
+  padding: var(--space-md);
 }
 
 @media (min-width: 640px) {
   .glass-card {
+    border-radius: 20px;
     padding: 2.5rem;
   }
 }
@@ -188,14 +191,14 @@ h3 {
 
 @media (min-width: 768px) {
   .dashboard-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 2fr;
     gap: var(--space-lg);
   }
 }
 
 @media (min-width: 1024px) {
   .dashboard-grid {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 2fr;
   }
 }
 
@@ -318,4 +321,5 @@ h3 {
   border-left: 3px solid var(--accent);
   background: hsla(45, 100%, 50%, 0.05);
   border-radius: 0 8px 8px 0;
+  word-break: break-word;
 }

@@ -92,7 +92,9 @@ const FaceVerificationModal = ({
       }
     };
 
-    intervalRef.current = setInterval(runDetection, 200);
+    // Run detection at a lower frequency on mobile to save battery / CPU
+    const intervalMs = 600; // 0.6s
+    intervalRef.current = setInterval(runDetection, intervalMs);
     return () => clearInterval(intervalRef.current);
   }, [faceApiLoaded, capturedSnap]);
 
@@ -189,31 +191,30 @@ const FaceVerificationModal = ({
         )}
 
         {/* Bottom row: captured preview + buttons */}
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Small capture preview */}
           <div style={{ flexShrink: 0 }}>
-            <div style={{ width: '62px', height: '62px', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${faceDetected ? '#00e5ff' : '#333'}`, background: '#111', position: 'relative' }}>
+            <div style={{ width: '50px', height: '50px', borderRadius: '10px', overflow: 'hidden', border: `2px solid ${faceDetected ? '#00e5ff' : '#333'}`, background: '#111', position: 'relative' }}>
               {capturedSnap
-                ? <img src={capturedSnap} alt="capture" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img loading="lazy" className="lazy-img" src={capturedSnap} alt="capture" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>👤</div>
               }
               {faceDetected && (
                 <div style={{ position: 'absolute', bottom: '2px', right: '2px', background: '#00e5ff', borderRadius: '50%', width: '12px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}>✓</div>
               )}
             </div>
-            <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '3px' }}>Preview</p>
           </div>
 
           <button
             className="btn-primary"
-            style={{ flex: 1, background: 'transparent', border: '1px solid var(--glass-border)', fontSize: '0.85rem' }}
+            style={{ flex: 1, minWidth: '80px', background: 'transparent', border: '1px solid var(--glass-border)', fontSize: '0.85rem', padding: '0.5rem' }}
             onClick={onCancel}
           >
             Cancel
           </button>
           <button
             className="btn-primary"
-            style={{ flex: 2, background: accent, fontSize: '0.85rem', opacity: locLoading ? 0.7 : 1 }}
+            style={{ flex: 2, minWidth: '140px', background: accent, fontSize: '0.85rem', opacity: locLoading ? 0.7 : 1 }}
             onClick={onVerify}
             disabled={locLoading}
           >
@@ -221,14 +222,6 @@ const FaceVerificationModal = ({
           </button>
         </div>
       </motion.div>
-
-      <style>{`
-        @keyframes scan-sweep {
-          0%   { top: 0%; }
-          50%  { top: 95%; }
-          100% { top: 0%; }
-        }
-      `}</style>
     </motion.div>
   );
 };

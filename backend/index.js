@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const compression = require('compression');
+const helmet = require('helmet');
 const { Parser } = require('json2csv');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
@@ -9,12 +11,26 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
+// Security headers
+app.use(helmet());
+
+// CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
 
+// Compress responses to reduce bytes over mobile networks
+app.use(compression());
+
 // Serve static files from the React app
 const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+// Set cache control for common static assets to leverage client-side caching
+app.use((req, res, next) => {
+  if (req.path.startsWith('/assets') || req.path.match(/\.(js|css|png|jpg|jpeg|svg|webp)$/)) {
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  next();
+});
+app.use(express.static(distPath, { maxAge: '1y' }));
 
 // Auth Routes (Simplified for initial version)
 app.post('/api/login', async (req, res) => {

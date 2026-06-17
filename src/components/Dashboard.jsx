@@ -35,9 +35,9 @@ const Dashboard = ({ user, onLogout }) => {
         console.error("FaceAPI Model Load Failure", err);
       }
     };
-    loadModels();
+    if (!faceApiLoaded) loadModels();
     fetchLogs();
-  }, [user.id]);
+  }, []); // Only load models once per app lifecycle
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -93,14 +93,20 @@ const Dashboard = ({ user, onLogout }) => {
     setLocLoading(true);
     setFaceError(null);
 
-    if (!faceapi) {
+    if (!faceApiLoaded) {
       alert("Biometric system still loading...");
       setLocLoading(false);
       return;
     }
 
     // 1. Capture current face
-    const video = webcamRef.current.video;
+    const video = webcamRef.current?.video;
+    if (!video) {
+      setFaceError("Camera not ready.");
+      setLocLoading(false);
+      return;
+    }
+
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks()
       .withFaceDescriptor();
@@ -245,9 +251,9 @@ const Dashboard = ({ user, onLogout }) => {
 
   return (
     <div className="container animate-fade-in">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h2 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             Welcome, {user.name}
             {perfectWeek && (
               <motion.span
@@ -265,7 +271,7 @@ const Dashboard = ({ user, onLogout }) => {
         <button onClick={onLogout} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer' }}>Logout</button>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+      <div className="dashboard-grid">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           <div className="glass-card" style={{ height: 'fit-content' }}>
             <h3 style={{ marginBottom: '1.5rem', color: 'var(--primary)' }}>Attendance</h3>
@@ -322,7 +328,7 @@ const Dashboard = ({ user, onLogout }) => {
               <h3 style={{ marginBottom: '1rem', color: 'var(--accent)', fontSize: '1.1rem' }}>Kampus Notices</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                 {memos.map(memo => (
-                  <div key={memo.id} style={{ padding: '0.8rem', borderLeft: '3px solid var(--accent)', background: 'hsla(45, 100%, 50%, 0.05)', borderRadius: '0 8px 8px 0' }}>
+                  <div key={memo.id} className="memo-card" style={{ padding: '0.8rem' }}>
                     <p style={{ fontSize: '0.9rem', marginBottom: '0.2rem', lineHeight: '1.4' }}>{memo.content}</p>
                     <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'right' }}>— {memo.author}</p>
                   </div>
@@ -334,8 +340,8 @@ const Dashboard = ({ user, onLogout }) => {
 
         <div className="glass-card">
           <h3 style={{ marginBottom: '1.5rem' }}>Recent Activity</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="table-wrap">
+            <table>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--glass-border)', textAlign: 'left' }}>
                   <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Date</th>
