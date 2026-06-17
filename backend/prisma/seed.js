@@ -1,0 +1,39 @@
+const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
+const prisma = new PrismaClient();
+
+async function main() {
+  // Create initial users
+  await prisma.user.upsert({
+    where: { email: 'admin@blueox.com' },
+    update: {},
+    create: {
+      name: 'Manager',
+      email: 'admin@blueox.com',
+      password: 'password123',
+      role: 'admin'
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'john@blueox.com' },
+    update: {},
+    create: {
+      name: 'John Doe',
+      email: 'john@blueox.com',
+      password: 'password123',
+      role: 'employee'
+    }
+  });
+
+  console.log('Database seeded successfully!');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
