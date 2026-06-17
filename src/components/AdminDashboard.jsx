@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getAllLogs, deleteLog, registerEmployee } from '../utils/storage';
+import { getAllLogs, deleteLog, registerEmployee, exportLogs, getMemos, createMemo } from '../utils/storage';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const AdminDashboard = ({ user, onLogout }) => {
   const [logs, setLogs] = useState([]);
@@ -9,6 +10,9 @@ const AdminDashboard = ({ user, onLogout }) => {
   const [newEmployee, setNewEmployee] = useState({ name: '', email: '', password: '', role: 'employee' });
   const [addError, setAddError] = useState('');
   const [addLoading, setAddLoading] = useState(false);
+  const [memos, setMemos] = useState([]);
+  const [newMemo, setNewMemo] = useState('');
+  const [memoLoading, setMemoLoading] = useState(false);
 
   useEffect(() => {
     fetchLogs();
@@ -18,7 +22,9 @@ const AdminDashboard = ({ user, onLogout }) => {
     setLoading(true);
     try {
       const allLogs = await getAllLogs();
+      const allMemos = await getMemos();
       setLogs(allLogs);
+      setMemos(allMemos);
 
       const late = allLogs.filter(l => l.status === 'Late').length;
       const onTime = allLogs.filter(l => l.status === 'On Time').length;
@@ -28,6 +34,10 @@ const AdminDashboard = ({ user, onLogout }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExport = () => {
+    exportLogs();
   };
 
   const handleAddEmployee = async (e) => {
@@ -65,6 +75,13 @@ const AdminDashboard = ({ user, onLogout }) => {
           <p style={{ color: 'var(--text-muted)' }}>Blue Ox Kampus Administration</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
+          <button
+            onClick={handleExport}
+            className="btn-primary"
+            style={{ background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+          >
+            Export Logs
+          </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="btn-primary"
@@ -135,16 +152,103 @@ const AdminDashboard = ({ user, onLogout }) => {
         </div>
       </div>
 
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+        <div className="glass-card" style={{ height: '400px' }}>
+          <h3 style={{ marginBottom: '1.5rem' }}>Attendance Trends</h3>
+          <ResponsiveContainer width="100%" height="85%">
+            <LineChart data={logs.slice(0, 7).reverse().map(l => ({ name: l.date, status: l.status === 'On Time' ? 1 : 0 }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
+              <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={12} />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--glass-border)', color: 'white' }}
+                itemStyle={{ color: 'var(--primary)' }}
+              />
+              <Line type="monotone" dataKey="status" stroke="var(--primary)" strokeWidth={2} dot={{ fill: 'var(--primary)' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="glass-card" style={{ height: '400px' }}>
+          <h3 style={{ marginBottom: '1.5rem' }}>Status Distribution</h3>
+          <ResponsiveContainer width="100%" height="85%">
+            <PieChart>
+              <Pie
+                data={[
+                  { name: 'On Time', value: stats.onTime },
+                  { name: 'Late', value: stats.late }
+                ]}
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                <Cell fill="#44ff44" />
+                <Cell fill="#ff4444" />
+              </Pie>
+              <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--glass-border)', color: 'white' }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
+        <div className="glass-card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Post New Announcement</h3>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newMemo) return;
+            setMemoLoading(true);
+            try {
+              await createMemo({ content: newMemo, author: user.name });
+              setNewMemo('');
+              const updated = await getMemos();
+              setMemos(updated);
+            } catch (err) {
+              console.error(err);
+            } finally {
+              setMemoLoading(false);
+            }
+          }}>
+            <textarea
+              className="input-field"
+              placeholder="Type company announcement here..."
+              value={newMemo}
+              onChange={(e) => setNewMemo(e.target.value)}
+              style={{ minHeight: '100px', marginBottom: '1rem', resize: 'vertical' }}
+            />
+            <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={memoLoading}>
+              Post Memo
+            </button>
+          </form>
+        </div>
+
+        <div className="glass-card">
+          <h3 style={{ marginBottom: '1.5rem' }}>Active Notices</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {memos.map(memo => (
+              <div key={memo.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem', background: 'hsla(0, 0%, 100%, 0.05)', borderRadius: '8px' }}>
+                <p style={{ fontSize: '0.9rem' }}>{memo.content}</p>
+                {/* Delete button logic here */}
+              </div>
+            ))}
+            {memos.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No active notices</p>}
+          </div>
+        </div>
+      </div>
+
       <div className="glass-card">
         <h3 style={{ marginBottom: '1.5rem' }}>Employee Attendance Records</h3>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--glass-border)', textAlign: 'left' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Entry</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Exit</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Employee</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Date</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Time In</th>
-                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Time Out</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>In</th>
+                <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Out</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Status</th>
                 <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>Action</th>
               </tr>
@@ -152,10 +256,32 @@ const AdminDashboard = ({ user, onLogout }) => {
             <tbody>
               {logs.map(log => (
                 <tr key={log.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <td style={{ padding: '1rem' }}>
+                    {log.photo ? (
+                      <img src={log.photo} alt="In" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--primary)' }} />
+                    ) : (
+                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'hsla(0,0%,100%,0.05)' }}></div>
+                    )}
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    {log.outPhoto ? (
+                      <img src={log.outPhoto} alt="Out" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #ff4444' }} />
+                    ) : (
+                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'hsla(0,0%,100%,0.05)' }}></div>
+                    )}
+                  </td>
                   <td style={{ padding: '1rem', fontWeight: '500' }}>{log.userName}</td>
                   <td style={{ padding: '1rem' }}>{log.date}</td>
-                  <td style={{ padding: '1rem' }}>{log.timeIn}</td>
-                  <td style={{ padding: '1rem' }}>{log.timeOut || '-'}</td>
+                  <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
+                    {log.timeIn}
+                    <br />
+                    <span style={{ color: log.isOutOfBounds ? '#ff4444' : '#44ff44', fontSize: '0.7rem' }}>
+                      {log.isOutOfBounds ? '🚩 Remote' : '📍 On-Site'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
+                    {log.timeOut || '-'}
+                  </td>
                   <td style={{ padding: '1rem' }}>
                     <span style={{
                       color: log.status === 'Late' ? '#ff4444' : '#44ff44',

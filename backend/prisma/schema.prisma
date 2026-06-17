@@ -15,9 +15,10 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      String   @default("employee") // admin or employee
-  logs      Log[]
-  createdAt DateTime @default(now())
+  role           String   @default("employee") // admin or employee
+  faceDescriptor String?  // Stringified Float32Array (128 units)
+  logs           Log[]
+  createdAt      DateTime @default(now())
 }
 
 model Log {
@@ -29,5 +30,19 @@ model Log {
   timeIn    String
   timeOut   String?
   status    String   // On Time or Late
+  lat           Float?
+  lng           Float?
+  outLat        Float?
+  outLng        Float?
+  photo         String?  // Punch-in photo
+  outPhoto      String?  // Punch-out photo
+  isOutOfBounds Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model Memo {
+  id        String   @id @default(cuid())
+  content   String
+  author    String
   createdAt DateTime @default(now())
 }

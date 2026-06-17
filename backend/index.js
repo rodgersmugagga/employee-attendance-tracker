@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { Parser } = require('json2csv');
 const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
 
@@ -12,7 +13,8 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../dist')));
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
 
 // Auth Routes (Simplified for initial version)
 app.post('/api/login', async (req, res) => {
@@ -70,10 +72,10 @@ app.get('/api/admin/logs', async (req, res) => {
 });
 
 app.post('/api/punch-in', async (req, res) => {
-  const { userId, userName, date, timeIn, status } = req.body;
+  const { userId, userName, date, timeIn, status, lat, lng, photo, isOutOfBounds } = req.body;
   try {
     const newLog = await prisma.log.create({
-      data: { userId, userName, date, timeIn, status }
+      data: { userId, userName, date, timeIn, status, lat, lng, photo, isOutOfBounds: !!isOutOfBounds }
     });
     res.json(newLog);
   } catch (err) {
@@ -82,13 +84,31 @@ app.post('/api/punch-in', async (req, res) => {
 });
 
 app.post('/api/punch-out', async (req, res) => {
-  const { logId, timeOut } = req.body;
+  const { logId, timeOut, outLat, outLng, outPhoto } = req.body;
   try {
     const updatedLog = await prisma.log.update({
       where: { id: logId },
-      data: { timeOut }
+      data: { timeOut, outLat, outLng, outPhoto }
     });
     res.json(updatedLog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/export', async (req, res) => {
+  try {
+    const logs = await prisma.log.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const fields = ['userName', 'date', 'timeIn', 'timeOut', 'status'];
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(logs);
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment(`attendance_report_${new Date().toISOString().split('T')[0]}.csv`);
+    return res.send(csv);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -103,10 +123,56 @@ app.delete('/api/logs/:id', async (req, res) => {
   }
 });
 
+app.get('/api/memos', async (req, res) => {
+  try {
+    const memos = await prisma.memo.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+    res.json(memos);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/memos', async (req, res) => {
+  const { content, author } = req.body;
+  try {
+    const newMemo = await prisma.memo.create({
+      data: { content, author }
+    });
+    res.json(newMemo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/memos/:id', async (req, res) => {
+  try {
+    await prisma.memo.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/users/:userId/face', async (req, res) => {
+  const { faceDescriptor } = req.body;
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: req.params.userId },
+      data: { faceDescriptor }
+    });
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get('*path', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(PORT, () => {

@@ -33,6 +33,10 @@ export const getAllLogs = async () => {
   return response.json();
 };
 
+export const exportLogs = () => {
+  window.location.href = `${API_BASE_URL}/admin/export`;
+};
+
 export const punchIn = async (data) => {
   const response = await fetch(`${API_BASE_URL}/punch-in`, {
     method: 'POST',
@@ -42,11 +46,11 @@ export const punchIn = async (data) => {
   return response.json();
 };
 
-export const punchOut = async (logId, timeOut) => {
+export const punchOut = async (data) => {
   const response = await fetch(`${API_BASE_URL}/punch-out`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ logId, timeOut })
+    body: JSON.stringify(data)
   });
   return response.json();
 };
@@ -73,4 +77,26 @@ export const setStoredUser = (user) => {
 
 export const clearStoredUser = () => {
   localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+};
+
+export const getMemos = async () => {
+  const response = await fetch(`${API_BASE_URL}/memos`);
+  return response.json();
+};
+
+export const createMemo = async (memoData) => {
+  const response = await fetch(`${API_BASE_URL}/memos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(memoData)
+  });
+  return response.json();
+};
+export const updateFaceDescriptor = async (userId, descriptor) => {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/face`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ faceDescriptor: JSON.stringify(Array.from(descriptor)) })
+  });
+  return response.json();
 };
