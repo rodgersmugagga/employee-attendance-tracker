@@ -1,4 +1,4 @@
-const API_ORIGIN = import.meta.env.MODE === 'production' ? '' : 'http://localhost:5000';
+const API_ORIGIN = 'https://atte-itns.onrender.com';
 const API_BASE_URL = `${API_ORIGIN}/api`;
 export const BLUE_OX_EMAIL_DOMAIN = '@blueox.com';
 
